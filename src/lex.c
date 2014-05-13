@@ -3,7 +3,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <wctype.h>
-#include <locale.h>
 
 #include "lex.h"
 
@@ -125,9 +124,6 @@ int take_identifier(Lexer * lexer) {
         }
     }
     return len;
-
-err:
-    return result;
 }
 
 int take_string_simple(Lexer * lexer) {
@@ -219,15 +215,15 @@ void token_merge(Token * tok1, Token * tok2) {
 }
 
 Token * lex(Lexer * lexer, LexerStatus * status) {
-    if (lexer->input == NULL) {
-        *status = L_ERR_NO_INPUT;
-        goto err;
-    }
-
     Token * tok = token_new(lexer);
     tok->start_loc = get_loc(lexer);
     int len = 0;
     Lexer *string_lexer;
+
+    if (lexer->input == NULL) {
+        *status = L_ERR_NO_INPUT;
+        goto err;
+    }
 
     switch (lexer->state) {
         case L_START:
@@ -277,38 +273,5 @@ Token * lex(Lexer * lexer, LexerStatus * status) {
 err:
     lexer->state = L_END;
     return tok;
-}
-
-int main(int argc, char* argv[]) {
-    setlocale(LC_ALL, "en_US.UTF-8");
-    Token * tok;
-    Lexer * lexer = lexer_new("", argv[1]);
-    LexerStatus lexer_status;
-    while (lexer->state != L_END) {
-        tok = lex(lexer, &lexer_status);
-        printf("{ type = %i, lexeme = \"%s\" } at (%i,%i) - (%i,%i)\n",
-                tok->type,
-                tok->lexeme,
-                tok->start_loc.line,
-                tok->start_loc.column,
-                tok->end_loc.line,
-                tok->end_loc.column);
-    }
-    switch (lexer_status) {
-        case L_SUCCESS:
-            break;
-        case L_ERR_NO_INPUT:
-            printf("Error: no input was supplied to the lexer.\n");
-            break;
-        case L_UNEXPECTED_EOF:
-            printf("Error: unexpected end of input.\n");
-            break;
-        case L_INVALID_UTF8:
-            printf("Error: invalid utf8.\n");
-            break;
-        default:
-            printf("The lexer was unable to lex.\n");
-    }
-    return lexer_status;
 }
 

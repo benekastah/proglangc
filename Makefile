@@ -1,29 +1,17 @@
 IDIR = include
 CC = gcc
-CFLAGS = -I$(IDIR)
+CFLAGS = -I$(IDIR) -Wall
 
 ODIR = obj
 LDIR = lib
 SRCDIR = src
 
-# LIBS = -lm
-
-# _DEPS = hellomake.h
-# DEPS = $(patsubst %,$(IDIR)/%,$(_DEPS))
-
-_OBJ = lex.o
-OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
-
-
-# $(ODIR)/%.o: %.c $(DEPS)
-# 	$(CC) -c -o $@ $< $(CFLAGS)
+SRC = $(wildcard $(SRCDIR)/*.c)
+OBJ = $(patsubst $(SRCDIR)/%.c,obj/%.o,$(SRC))
 
 $(ODIR)/%.o: $(SRCDIR)/%.c
-	mkdir -p $(ODIR) && \
+	mkdir -p "`dirname $@`" && \
 	$(CC) -c -o $@ $< $(CFLAGS)
-
-# build: $(OBJ)
-# 	$(CC) -o $@ $^ $(CFLAGS) $(LIBS)
 
 lang: $(OBJ)
 	gcc -o $@ $^ $(CFLAGS)
@@ -31,4 +19,6 @@ lang: $(OBJ)
 .PHONY: clean
 
 clean:
-	rm -f $(ODIR)/*.o *~ core $(INCDIR)/*~
+	rm -rf $(ODIR) \
+	rm lang \
+	rm *~ core $(INCDIR)/*~
