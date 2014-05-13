@@ -2,7 +2,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <ctype.h>
+#include <wctype.h>
+#include <locale.h>
 
 #include "lex.h"
 
@@ -29,8 +30,16 @@ Token * token_new(Lexer * lexer) {
     return token;
 }
 
-char nextchar(Lexer * lexer) {
-    return lexer->input[lexer->_p++];
+int nextchar(Lexer * lexer, wchar_t * result) {
+    const char * str = lexer->input + lexer->_p;
+    int len = mbtowc(result, str, MB_CUR_MAX);
+    switch (len) {
+        case -1:
+            return L_INVALID_UTF8;
+        default:
+            lexer->_p += len;
+    }
+    return len;
 }
 
 char * substr(Lexer * lexer, int start, int end) {
@@ -53,6 +62,10 @@ int isdblquote(int c) {
     }
 }
 
+int isnotdblquote(int c) {
+    return !isdblquote(c);
+}
+
 int isescapemeta(int c) {
     if (c == '\\') {
         return 1;
@@ -63,11 +76,19 @@ int isescapemeta(int c) {
 
 int take_n(Lexer * lexer, int n, CharTestFn * test) {
     int len = 0;
-    char curchar;
-    while ((n <= 0 || len < n)) {
-        curchar = nextchar(lexer);
+    int wlen = 0;
+    int curchar_len;
+    wchar_t curchar;
+
+    while ((n <= 0 || wlen < n)) {
+        curchar_len = nextchar(lexer, &curchar);
+        if (curchar_len < 0) {
+            return curchar_len;
+        }
+
         if ((*test)(curchar)) {
-            len += 1;
+            len += curchar_len;
+            wlen += 1;
             if (curchar == '\n') {
                 lexer->cur_line += 1;
                 lexer->cur_column = 1;
@@ -75,7 +96,7 @@ int take_n(Lexer * lexer, int n, CharTestFn * test) {
                 lexer->cur_column += 1;
             }
         } else {
-            lexer->_p -= 1;
+            lexer->_p -= curchar_len;
             break;
         }
     }
@@ -96,22 +117,41 @@ int take_ws(Lexer * lexer) {
 
 int take_identifier(Lexer * lexer) {
     int len = 0;
-    if (len += take_one(lexer, &isalpha)) {
-        len += take(lexer, &isalnum);
+    int result;
+    if ((result = take_one(lexer, &iswalpha)) > 0) {
+        len += result;
+        if ((result = take(lexer, &iswalnum)) > 0) {
+            len += result;
+        }
     }
     return len;
+
+err:
+    return result;
 }
 
 int take_string_simple(Lexer * lexer) {
     int len = 0;
-    if (take_one(lexer, &isdblquote)) {
-        len += 1;
-        while (!take_one(lexer, &isdblquote)) {
-            len += 1;
+    int result;
+    if ((result = take_one(lexer, &isdblquote)) > 0) {
+        len += result;
+        while ((result = take_one(lexer, &isnotdblquote)) > 0) {
+            len += result;
         }
-        len += 1;
+        if (result < 0) {
+            goto err;
+        }
+        if ((result = take_one(lexer, &isdblquote)) > 0) {
+            len += result;
+        } else {
+            result = L_UNTERMINATED_STRING;
+            goto err;
+        }
     }
     return len;
+
+err:
+    return result;
 }
 
 char get_escaped_char(char c, LexerStatus * status) {
@@ -192,8 +232,16 @@ Token * lex(Lexer * lexer, LexerStatus * status) {
     switch (lexer->state) {
         case L_START:
             if ((len = take_identifier(lexer))) {
+                if (len < 0) {
+                    *status = len;
+                    goto err;
+                }
                 tok->type = T_IDENT;
             } else if (take_string_simple(lexer)) {
+                if (len < 0) {
+                    *status = len;
+                    goto err;
+                }
                 // After getting the whole string, make a new lexer to parse
                 // it. This is so we don't have to guess at how big the string
                 // is.
@@ -232,6 +280,7 @@ err:
 }
 
 int main(int argc, char* argv[]) {
+    setlocale(LC_ALL, "en_US.UTF-8");
     Token * tok;
     Lexer * lexer = lexer_new("", argv[1]);
     LexerStatus lexer_status;
@@ -245,10 +294,20 @@ int main(int argc, char* argv[]) {
                 tok->end_loc.line,
                 tok->end_loc.column);
     }
-    if (lexer_status == L_ERR_NO_INPUT) {
-        printf("Error: no input was supplied to the lexer.\n");
-    } else if (lexer_status != L_SUCCESS) {
-        printf("The lexer was unable to lex.\n");
+    switch (lexer_status) {
+        case L_SUCCESS:
+            break;
+        case L_ERR_NO_INPUT:
+            printf("Error: no input was supplied to the lexer.\n");
+            break;
+        case L_UNEXPECTED_EOF:
+            printf("Error: unexpected end of input.\n");
+            break;
+        case L_INVALID_UTF8:
+            printf("Error: invalid utf8.\n");
+            break;
+        default:
+            printf("The lexer was unable to lex.\n");
     }
     return lexer_status;
 }

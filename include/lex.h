@@ -13,10 +13,16 @@ typedef struct {
     enum lexer_state state;
 } Lexer;
 
+/**
+ * All these values should be negative with the exception of L_SUCCESS
+ */
 typedef enum {
     L_SUCCESS = 0,
-    L_ERR_NO_INPUT,
-    L_BAD_ESCAPE_CHAR
+    L_ERR_NO_INPUT=-1,
+    L_UNEXPECTED_EOF=-2,
+    L_BAD_ESCAPE_CHAR=-3,
+    L_INVALID_UTF8=-4,
+    L_UNTERMINATED_STRING=-5
 } LexerStatus;
 
 enum token_type {T_IDENT, T_STRING, T_EOF};
