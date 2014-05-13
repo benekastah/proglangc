@@ -7,7 +7,7 @@ LDIR = lib
 SRCDIR = src
 
 SRC = $(wildcard $(SRCDIR)/*.c)
-OBJ = $(patsubst $(SRCDIR)/%.c,obj/%.o,$(SRC))
+OBJ = $(patsubst $(SRCDIR)/%.c,$(ODIR)/%.o,$(SRC))
 
 $(ODIR)/%.o: $(SRCDIR)/%.c
 	mkdir -p "`dirname $@`" && \
