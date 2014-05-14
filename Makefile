@@ -1,5 +1,5 @@
 IDIR = include
-CC = gcc
+CC = clang
 CFLAGS = -I$(IDIR) -Wall
 
 ODIR = obj
@@ -15,6 +15,9 @@ $(ODIR)/%.o: $(SRCDIR)/%.c
 
 lang: $(OBJ)
 	$(CC) -o $@ $^ $(CFLAGS)
+
+debug: CFLAGS += -g
+debug: lang
 
 .PHONY: clean
 

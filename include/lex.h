@@ -40,9 +40,11 @@ typedef struct {
     struct token_loc end_loc;
 } Token;
 
-Token * token_new(Lexer * lexer);
+Token * token_alloc(Lexer * lexer);
+void token_free(Token * token);
 
-Lexer * lexer_new(const char * file_name, const char * input);
+Lexer * lexer_alloc(const char * file_name, const char * input);
+void lexer_free(Lexer * lexer);
 
 Token * lex(Lexer * lexer, LexerStatus * status);
 

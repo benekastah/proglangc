@@ -7,7 +7,7 @@
 int main(int argc, char* argv[]) {
     setlocale(LC_ALL, "en_US.UTF-8");
     Token * tok;
-    Lexer * lexer = lexer_new("", argv[1]);
+    Lexer * lexer = lexer_alloc("", argv[1]);
     LexerStatus lexer_status;
     while (lexer->state != L_END) {
         tok = lex(lexer, &lexer_status);
@@ -18,6 +18,7 @@ int main(int argc, char* argv[]) {
                 tok->start_loc.column,
                 tok->end_loc.line,
                 tok->end_loc.column);
+        token_free(tok);
     }
     switch (lexer_status) {
         case L_SUCCESS:
@@ -34,5 +35,7 @@ int main(int argc, char* argv[]) {
         default:
             printf("The lexer was unable to lex.\n");
     }
+
+    lexer_free(lexer);
     return lexer_status;
 }

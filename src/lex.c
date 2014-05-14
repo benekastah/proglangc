@@ -11,7 +11,7 @@
  * http://www.gnu.org/software/libc/manual/html_node/Classification-of-Characters.html
  */
 
-Lexer * lexer_new(const char * file_name, const char * input) {
+Lexer * lexer_alloc(const char * file_name, const char * input) {
     Lexer * lexer = malloc(sizeof(Lexer));
     lexer->file_name = file_name;
     lexer->input = input;
@@ -22,11 +22,19 @@ Lexer * lexer_new(const char * file_name, const char * input) {
     return lexer;
 }
 
-Token * token_new(Lexer * lexer) {
+void lexer_free(Lexer * lexer) {
+    free(lexer);
+}
+
+Token * token_alloc(Lexer * lexer) {
     Token * token = malloc(sizeof(Token));
     token->lexer = lexer;
     token->lexeme = 0;
     return token;
+}
+
+void token_free(Token * token) {
+    free(token);
 }
 
 int nextchar(Lexer * lexer, wchar_t * result) {
@@ -73,6 +81,22 @@ int isescapemeta(int c) {
     }
 }
 
+int isunderscore(int c) {
+    if (c == '_') {
+        return 1;
+    } else {
+        return 0;
+    }
+}
+
+int isident_start(int c) {
+    return iswalpha(c) || isunderscore(c);
+}
+
+int isident_end(int c) {
+    return iswalnum(c) || isunderscore(c);
+}
+
 int take_n(Lexer * lexer, int n, CharTestFn * test) {
     int len = 0;
     int wlen = 0;
@@ -117,9 +141,9 @@ int take_ws(Lexer * lexer) {
 int take_identifier(Lexer * lexer) {
     int len = 0;
     int result;
-    if ((result = take_one(lexer, &iswalpha)) > 0) {
+    if ((result = take_one(lexer, &isident_start)) > 0) {
         len += result;
-        if ((result = take(lexer, &iswalnum)) > 0) {
+        if ((result = take(lexer, &isident_end)) > 0) {
             len += result;
         }
     }
@@ -215,7 +239,7 @@ void token_merge(Token * tok1, Token * tok2) {
 }
 
 Token * lex(Lexer * lexer, LexerStatus * status) {
-    Token * tok = token_new(lexer);
+    Token * tok = token_alloc(lexer);
     tok->start_loc = get_loc(lexer);
     int len = 0;
     Lexer *string_lexer;
@@ -241,7 +265,7 @@ Token * lex(Lexer * lexer, LexerStatus * status) {
                 // After getting the whole string, make a new lexer to parse
                 // it. This is so we don't have to guess at how big the string
                 // is.
-                string_lexer = lexer_new(
+                string_lexer = lexer_alloc(
                     lexer->file_name, lastn_substr(lexer, len));
                 string_lexer->state = L_STRING;
                 token_merge(tok, lex(lexer, status));
