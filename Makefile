@@ -1,6 +1,6 @@
 IDIR = include
 CC = clang
-CFLAGS = -I$(IDIR) -Wall
+CFLAGS = -I$(IDIR) -Wall -g
 
 ODIR = obj
 LDIR = lib
@@ -16,8 +16,8 @@ $(ODIR)/%.o: $(SRCDIR)/%.c
 lang: $(OBJ)
 	$(CC) -o $@ $^ $(CFLAGS)
 
-debug: CFLAGS += -g
-debug: lang
+no-debug: CFLAGS := $(filter-out -g, $(CFLAGS))
+no-debug: lang
 
 .PHONY: clean
 

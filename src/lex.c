@@ -19,6 +19,7 @@ Lexer * lexer_alloc(const char * file_name, const char * input) {
     lexer->cur_line = 1;
     lexer->cur_column = 1;
     lexer->state = L_START;
+    take_ws(lexer);  // Eat leading whitespace
     return lexer;
 }
 
@@ -42,7 +43,7 @@ int nextchar(Lexer * lexer, wchar_t * result) {
     int len = mbtowc(result, str, MB_CUR_MAX);
     switch (len) {
         case -1:
-            return L_INVALID_UTF8;
+            return -L_INVALID_UTF8;
         default:
             lexer->_p += len;
     }
@@ -79,6 +80,12 @@ int isescapemeta(int c) {
     } else {
         return 0;
     }
+}
+
+int isescapablestringchar(int c) {
+    LexerStatus status = L_SUCCESS;
+    get_escaped_char(c, &status);
+    return status == L_SUCCESS;
 }
 
 int isunderscore(int c) {
@@ -155,8 +162,19 @@ int take_string_simple(Lexer * lexer) {
     int result;
     if ((result = take_one(lexer, &isdblquote)) > 0) {
         len += result;
-        while ((result = take_one(lexer, &isnotdblquote)) > 0) {
-            len += result;
+        while (1) {
+            if ((result = take_one(lexer, &isescapemeta)) > 0) {
+                len += result;
+                if ((result = take_one(lexer, &isescapablestringchar)) > 0) {
+                    len += result;
+                } else {
+                    return -L_BAD_ESCAPE_CHAR;
+                }
+            } else if ((result = take_one(lexer, &isnotdblquote)) > 0) {
+                len += result;
+            } else {
+                break;
+            }
         }
         if (result < 0) {
             goto err;
@@ -164,7 +182,7 @@ int take_string_simple(Lexer * lexer) {
         if ((result = take_one(lexer, &isdblquote)) > 0) {
             len += result;
         } else {
-            result = L_UNTERMINATED_STRING;
+            result = -L_UNTERMINATED_STRING;
             goto err;
         }
     }
@@ -174,7 +192,7 @@ err:
     return result;
 }
 
-char get_escaped_char(char c, LexerStatus * status) {
+wchar_t get_escaped_char(wchar_t c, LexerStatus * status) {
     switch (c) {
         case 'b': return '\b';
         case 't': return '\t';
@@ -253,13 +271,13 @@ Token * lex(Lexer * lexer, LexerStatus * status) {
         case L_START:
             if ((len = take_identifier(lexer))) {
                 if (len < 0) {
-                    *status = len;
+                    *status = -len;
                     goto err;
                 }
                 tok->type = T_IDENT;
-            } else if (take_string_simple(lexer)) {
+            } else if ((len = take_string_simple(lexer))) {
                 if (len < 0) {
-                    *status = len;
+                    *status = -len;
                     goto err;
                 }
                 // After getting the whole string, make a new lexer to parse
@@ -268,7 +286,7 @@ Token * lex(Lexer * lexer, LexerStatus * status) {
                 string_lexer = lexer_alloc(
                     lexer->file_name, lastn_substr(lexer, len));
                 string_lexer->state = L_STRING;
-                token_merge(tok, lex(lexer, status));
+                token_merge(tok, lex(string_lexer, status));
             } else {
                 lexer->state = L_END;
                 token_merge(tok, lex(lexer, status));

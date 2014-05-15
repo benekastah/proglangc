@@ -13,16 +13,16 @@ typedef struct {
     enum lexer_state state;
 } Lexer;
 
-/**
- * All these values should be negative with the exception of L_SUCCESS
- */
 typedef enum {
     L_SUCCESS = 0,
-    L_ERR_NO_INPUT=-1,
-    L_UNEXPECTED_EOF=-2,
-    L_BAD_ESCAPE_CHAR=-3,
-    L_INVALID_UTF8=-4,
-    L_UNTERMINATED_STRING=-5
+    L_NO_SUCH_FILE,
+    L_OUT_OF_MEMORY,
+    L_UNREADABLE_FILE,
+    L_ERR_NO_INPUT,
+    L_UNEXPECTED_EOF,
+    L_BAD_ESCAPE_CHAR,
+    L_INVALID_UTF8,
+    L_UNTERMINATED_STRING
 } LexerStatus;
 
 enum token_type {T_IDENT, T_STRING, T_EOF};
@@ -51,4 +51,8 @@ Token * lex(Lexer * lexer, LexerStatus * status);
 const char * lex_identifier(Lexer * lexer);
 
 struct token_loc get_loc(Lexer * lexer);
+
+int take_ws(Lexer * lexer);
+
+wchar_t get_escaped_char(wchar_t c, LexerStatus * status);
 
